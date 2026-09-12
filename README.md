@@ -1,11 +1,11 @@
 # PhobGCC OEM origin reset
 
-Hold **X+Y+Start for 3s** (not A). Recaptures analog origin in RAM. Safe Mode can stay on. Stick calibration is not rewritten.
+Hold **X+Y+Start for 3s**. Recaptures analog origin in RAM. Safe Mode can stay on. Stick calibration is not rewritten.
 
 **Phob 2.0.x** (including 2.0.5): flash [`firmware/phobgcc-2.0.x-oem-origin-reset.uf2`](firmware/phobgcc-2.0.x-oem-origin-reset.uf2).  
 **Phob 1:** do not use the UF2. Build with Arduino after uncommenting your board header in `PhobGCC/common/phobGCC.h`.
 
-## Install (Phob 2)
+## Install (Phob 2.0.x)
 
 Use a **data** Micro-USB cable. Hold **S1**, then plug USB (`RPI-RP2`).
 
@@ -16,7 +16,7 @@ picotool load -v -x firmware/phobgcc-2.0.x-oem-origin-reset.uf2
 
 Windows can drag the UF2 onto `RPI-RP2`. **Mac: do not use Finder** (it hangs); use picotool.
 
-Then unplug, plug into the console/adapter, press **B** if sticks are still centered.
+Then unplug, plug into the console/adapter
 
 ## Files
 
