@@ -1,19 +1,32 @@
-# PhobGCC
+# PhobGCC OEM origin reset
 
-PhobGCC is an open-source Gamecube controller motherboard aiming to make an accessible and consistent controller. The key feature is the use of hall effect sensors instead of potentiometers, which eliminates a wear item. Additonally, it features notch calibration, digital snapback filtering, button remapping, and various trigger configurations.
+Hold **X+Y+Start for 3s** (not A). Recaptures analog origin in RAM. Safe Mode can stay on. Stick calibration is not rewritten.
 
-If you are interested in making one, join the project Discord to ask questions and get the most up to date information: https://discord.gg/eNJ7xWMvxf
+**Phob 2.0.x** (including 2.0.5): flash [`firmware/phobgcc-2.0.x-oem-origin-reset.uf2`](firmware/phobgcc-2.0.x-oem-origin-reset.uf2).  
+**Phob 1:** do not use the UF2. Build with Arduino after uncommenting your board header in `PhobGCC/common/phobGCC.h`.
 
-You can find all documentation here: https://github.com/PhobGCC/PhobGCC-doc
+## Install (Phob 2)
 
-Board version 1.2:
+Use a **data** Micro-USB cable. Hold **S1**, then plug USB (`RPI-RP2`).
 
-![Board version 1.2](https://github.com/PhobGCC/PhobGCC-doc/raw/main/For_Makers/BuildPics_1.2.2/CVAC1118_1lwoupq-output.jpg?raw=true)
+```bash
+picotool save -a -t uf2 backup.uf2
+picotool load -v -x firmware/phobgcc-2.0.x-oem-origin-reset.uf2
+```
 
-Hall effect sensors:
+Windows can drag the UF2 onto `RPI-RP2`. **Mac: do not use Finder** (it hangs); use picotool.
 
-![Prototypes](https://www.dropbox.com/s/fyltdef79c2z78y/Hall%20Sensors.png?raw=1)
+Then unplug, plug into the console/adapter, press **B** if sticks are still centered.
 
-Initial prototypes:
+## Files
 
-![Prototypes](https://www.dropbox.com/s/q8ypkzmfeijdc5w/boards.jpg?raw=1)
+| Path | What |
+|---|---|
+| `firmware/*.uf2` | Phob **2.0** flash image. Not for Phob 1. |
+| `PhobGCC/common/phobGCC.h` | Origin-reset code. Uncomment **one** board header here. |
+| `PhobGCC/common/variables.h` | RAM origin offsets. |
+| `PhobGCC/rp2040/` | Phob **2** CMake project (`cd PhobGCC/rp2040 && cmake -S . -B build`). |
+| `PhobGCC/PhobGCC.ino` | Phob **1** Arduino sketch. |
+| `PhobGCC/teensy/` | Phob **1** board headers. |
+
+Fork of [PhobGCC-SW](https://github.com/PhobGCC/PhobGCC-SW) 0.31. GPL-3.0.

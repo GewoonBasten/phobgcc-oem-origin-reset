@@ -22,4 +22,10 @@ int _rumblePower = 0;
 
 float _dT;
 
+// RAM-only live origin offsets. Recaptured by X+Y+Start; never written to flash/EEPROM.
+int _axOriginOff = 0;
+int _ayOriginOff = 0;
+int _cxOriginOff = 0;
+int _cyOriginOff = 0;
+
 #endif //VARIABLES_H

@@ -938,6 +938,38 @@ bool checkAdjustExtra(ExtrasSlot slot, Buttons &btn, bool checkConfig){
 	return false;
 }
 
+// Apply a RAM-only origin offset and clamp to a valid GCC analog byte.
+inline uint8_t applyLiveOrigin(const float centeredPlusOrigin, const int originOff) {
+	int out = (int)centeredPlusOrigin - originOff;
+	if(out < 0) {
+		out = 0;
+	} else if(out > 255) {
+		out = 255;
+	}
+	return (uint8_t)out;
+}
+
+// Recapture rest position into RAM only: stick origin offsets and trigger neutrals.
+// Does not write EEPROM/flash, freeze the sticks, or change saved calibration.
+void recaptureLiveOrigin(Buttons &btn, Pins &pin, ControlConfig &controls, bool &running) {
+	_axOriginOff += (int)btn.Ax - _intOrigin;
+	_ayOriginOff += (int)btn.Ay - _intOrigin;
+	_cxOriginOff += (int)btn.Cx - _intOrigin;
+	_cyOriginOff += (int)btn.Cy - _intOrigin;
+
+	controls.lTrigInitial = readLa(pin, 0, 1);
+	controls.rTrigInitial = readRa(pin, 0, 1);
+
+	btn.Ax = (uint8_t)_intOrigin;
+	btn.Ay = (uint8_t)_intOrigin;
+	btn.Cx = (uint8_t)_intOrigin;
+	btn.Cy = (uint8_t)_intOrigin;
+	btn.La = (uint8_t)0;
+	btn.Ra = (uint8_t)0;
+
+	running = true;
+}
+
 void initializeButtons(const Pins &pin, Buttons &btn,int &startUpLa, int &startUpRa){
 	//set the analog stick values to the chosen center value that will be reported to the console on startup
 	//We choose 127 (_intOrigin) for this, and elsewhere we use an offset of 127.5 (_floatOrigin) truncated to int in order to round properly
@@ -2055,7 +2087,34 @@ void processButtons(Pins &pin, Buttons &btn, Buttons &hardware, ControlConfig &c
 	//Copy temp buttons (including analog triggers) back to btn
 	copyButtons(tempBtn, btn);
 
+	// OEM-style origin recapture: hold physical X+Y+Start for 3 seconds.
+	// Runs in Safe Mode. Non-blocking (no delay()/freezeSticks). RAM-only.
+	// A is excluded so this cannot collide with AXY+Start (Safe Mode toggle).
+	{
+		static uint32_t originResetHoldStart = 0;
+		static bool originResetHolding = false;
+		static bool originResetFired = false;
+		const bool originCombo = hardware.X && hardware.Y && hardware.S
+			&& !hardware.A && !hardware.B && !hardware.Z
+			&& (currentCalStep == -1) && (currentRemapStep == -1);
+		if(originCombo) {
+			if(!originResetHolding) {
+				originResetHolding = true;
+				originResetFired = false;
+				originResetHoldStart = (uint32_t)millis();
+			} else if(!originResetFired &&
+			          ((uint32_t)millis() - originResetHoldStart) >= 3000u) {
+				originResetFired = true;
+				recaptureLiveOrigin(btn, pin, controls, running);
+			}
+		} else {
+			originResetHolding = false;
+			originResetFired = false;
+		}
+	}
+
 	/* Current Commands List
+	* OEM Origin Recapture (Safe Mode OK, RAM-only):  X+Y+Start hold 3s
 	* Safe Mode:  AXY+Start
 	* Display Version: AZ+Du
 	*
@@ -2598,37 +2657,41 @@ void readSticks(int readA, int readC, Buttons &btn, Pins &pin, RawStick &raw, co
 	//assign the remapped values to the button struct
 	if(readA){
 		if(!aRaw) {
+			const float axTarget = remappedAx+_floatOrigin - _axOriginOff;
+			const float ayTarget = remappedAy+_floatOrigin - _ayOriginOff;
 			if (!skipAHyst) {
-				float diffAx = (remappedAx+_floatOrigin)-btn.Ax;
+				float diffAx = axTarget-btn.Ax;
 				if( (diffAx > (1.0 + hystVal)) || (diffAx < -hystVal) ){
-					btn.Ax = (uint8_t) (remappedAx+_floatOrigin);
+					btn.Ax = applyLiveOrigin(remappedAx+_floatOrigin, _axOriginOff);
 				}
-				float diffAy = (remappedAy+_floatOrigin)-btn.Ay;
+				float diffAy = ayTarget-btn.Ay;
 				if( (diffAy > (1.0 + hystVal)) || (diffAy < -hystVal) ){
-					btn.Ay = (uint8_t) (remappedAy+_floatOrigin);
+					btn.Ay = applyLiveOrigin(remappedAy+_floatOrigin, _ayOriginOff);
 				}
 			} else {
-				btn.Ax = (uint8_t) (remappedAx+_floatOrigin);
-				btn.Ay = (uint8_t) (remappedAy+_floatOrigin);
+				btn.Ax = applyLiveOrigin(remappedAx+_floatOrigin, _axOriginOff);
+				btn.Ay = applyLiveOrigin(remappedAy+_floatOrigin, _ayOriginOff);
 			}
 		} else {
-			btn.Ax = (uint8_t) (_floatOrigin + aStickX*100);
-			btn.Ay = (uint8_t) (_floatOrigin + aStickY*100);
+			btn.Ax = applyLiveOrigin(_floatOrigin + aStickX*100, _axOriginOff);
+			btn.Ay = applyLiveOrigin(_floatOrigin + aStickY*100, _ayOriginOff);
 		}
 	}
 	if(readC){
 		if(!cRaw) {
-			float diffCx = (remappedCx+_floatOrigin)-btn.Cx;
+			const float cxTarget = remappedCx+_floatOrigin - _cxOriginOff;
+			const float cyTarget = remappedCy+_floatOrigin - _cyOriginOff;
+			float diffCx = cxTarget-btn.Cx;
 			if( (diffCx > (1.0 + hystVal)) || (diffCx < -hystVal) ){
-				btn.Cx = (uint8_t) (remappedCx+_floatOrigin);
+				btn.Cx = applyLiveOrigin(remappedCx+_floatOrigin, _cxOriginOff);
 			}
-			float diffCy = (remappedCy+_floatOrigin)-btn.Cy;
+			float diffCy = cyTarget-btn.Cy;
 			if( (diffCy > (1.0 + hystVal)) || (diffCy < -hystVal) ){
-				btn.Cy = (uint8_t) (remappedCy+_floatOrigin);
+				btn.Cy = applyLiveOrigin(remappedCy+_floatOrigin, _cyOriginOff);
 			}
 		} else {
-			btn.Cx = (uint8_t) (_floatOrigin + cStickX*100);
-			btn.Cy = (uint8_t) (_floatOrigin + cStickY*100);
+			btn.Cx = applyLiveOrigin(_floatOrigin + cStickX*100, _cxOriginOff);
+			btn.Cy = applyLiveOrigin(_floatOrigin + cStickY*100, _cyOriginOff);
 		}
 	}
 };
