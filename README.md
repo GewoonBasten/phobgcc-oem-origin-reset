@@ -12,6 +12,7 @@ Use a **data** Micro-USB cable. Hold **S1**, then plug USB (`RPI-RP2`).
 Windows can drag the UF2 onto `RPI-RP2`. **Mac: do not use Finder** (it hangs); use picotool.
 
 ```bash
+brew install picotool
 picotool save -a -t uf2 backup.uf2
 picotool load -v -x firmware/phobgcc-2.0.x-oem-origin-reset.uf2
 ```
